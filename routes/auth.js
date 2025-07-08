@@ -38,7 +38,7 @@ const upload = multer({
 // UPDATE PHOTOGRAPHER
 router.post("/update/photographer/:id", upload.single("profile"), async (req, res) => {
   try {
-    const { name, email, phone, city } = req.body;
+    const { name, email, phone, city, language } = req.body;
     const userId = req.params.id;
 
     // Find the user
@@ -55,6 +55,7 @@ router.post("/update/photographer/:id", upload.single("profile"), async (req, re
     user.email = email;
     user.phone = phone;
     user.city = city;
+    user.language = language;
 
     // Handle profile image upload if provided
     if (req.file) {

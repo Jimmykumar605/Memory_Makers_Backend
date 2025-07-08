@@ -10,8 +10,14 @@ const userSchema = new mongoose.Schema({
     enum: ["customer", "photographer"], 
     required: true 
   },
-  phone: { type: String },
-  city: { type: String },
+  phone: { 
+    type: String,
+    required: function() { return this.user_type === 'photographer'; }
+  },
+  city: { 
+    type: String,
+    required: function() { return this.user_type === 'photographer'; }
+  },
   language: { type: String },
   profileImage: { type: String },
   created_at: { type: Date, default: Date.now }
