@@ -379,6 +379,15 @@ router.get("/photographers/:id/images/:category", async (req, res) => {
       });
     }
 
+    // Check if the category exists in the photographer's images
+    const categoryExists = photographerImage.images.some(img => img.category === category);
+    if (!categoryExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found in photographer's images"
+      });
+    }
+
     // Filter images by category
     const categoryImages = photographerImage.images.filter(img => img.category === category);
 

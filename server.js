@@ -21,15 +21,10 @@ app.get('/uploads/:filename', (req, res) => {
   res.sendFile(imagePath);
 });
 
+const errorHandler = require('./middleware/errorHandler');
+
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: err.message
-  });
-});
+app.use(errorHandler);
 
 // MongoDB connection configuration
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/loginDB";
