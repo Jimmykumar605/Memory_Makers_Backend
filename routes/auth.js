@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const User = require("../models/User");
+const { PhotographerImage } = require("../models/PhotographerImage");
 
 // Dummy JWT secret (use .env for production)
 const JWT_SECRET = "My$3cur3_JWT_Secr3t_K3y@2024!";
@@ -222,6 +223,183 @@ router.post('/register', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// UPLOAD PHOTOGRAPHER IMAGE
+router.post("/photographers/upload-image", upload.single("image"), async (req, res) => {
+  try {
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided"
+      });
+    }
+
+    // Get category from form data
+    const category = req.body.category;
+    const photographerId = req.body.photographerId;
+
+    // Validate required fields
+    if (!category || !photographerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Category and photographerId are required"
+      });
+    }
+
+    // Verify photographer exists and is valid
+    const user = await User.findById(photographerId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer not found"
+      });
+    }
+
+    if (user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a photographer"
+      });
+    }
+
+    // Store relative path instead of full path
+    const imageUrl = `uploads/${req.file.filename}`;
+    
+    // Find or create photographer's image document
+    let photographerImage = await PhotographerImage.findOne({ photographerId });
+    if (!photographerImage) {
+      photographerImage = new PhotographerImage({
+        photographerId,
+        images: []
+      });
+    }
+
+    // Add new image to array
+    photographerImage.images.push({
+      imageUrl,
+      category,
+      uploadedAt: new Date()
+    });
+
+    await photographerImage.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Image uploaded successfully",
+      data: {
+        imageUrl,
+        category,
+        uploadedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+});
+
+// GET PHOTOGRAPHER IMAGES BY ID
+router.get("/photographers/:id/images", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer not found"
+      });
+    }
+
+    if (user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a photographer"
+      });
+    }
+
+    // Find the photographer's image document
+    const photographerImage = await PhotographerImage.findOne({ photographerId: id });
+    
+    if (!photographerImage) {
+      return res.status(404).json({
+        success: false,
+        message: "No images found for this photographer"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      images: photographerImage.images
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+});
+
+// GET PHOTOGRAPHER IMAGES BY ID AND CATEGORY
+router.get("/photographers/:id/images/:category", async (req, res) => {
+  try {
+    const { id, category } = req.params;
+    const user = await User.findById(id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer not found"
+      });
+    }
+
+    if (user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a photographer"
+      });
+    }
+
+    // Find the photographer's image document
+    const photographerImage = await PhotographerImage.findOne({ photographerId: id });
+    
+    if (!photographerImage) {
+      return res.status(404).json({
+        success: false,
+        message: "No images found for this photographer"
+      });
+    }
+
+    // Filter images by category
+    const categoryImages = photographerImage.images.filter(img => img.category === category);
+
+    if (categoryImages.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No images found for this category"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      images: categoryImages
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
   }
 });
 
