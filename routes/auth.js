@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 const User = require("../models/User");
 const { PhotographerImage } = require("../models/PhotographerImage");
+const fs = require('fs');
 
 // Dummy JWT secret (use .env for production)
 const JWT_SECRET = "My$3cur3_JWT_Secr3t_K3y@2024!";
@@ -401,6 +402,100 @@ router.get("/photographers/:id/images/:category", async (req, res) => {
     return res.status(200).json({
       success: true,
       images: categoryImages
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+});
+
+// DELETE PHOTOGRAPHER IMAGE
+router.delete("/photographers/delete-image", async (req, res) => {
+  try {
+    const { imageId, photographerId, category } = req.body;
+
+    // Verify photographer exists and is valid
+    const user = await User.findById(photographerId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer not found"
+      });
+    }
+
+    if (user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a photographer"
+      });
+    }
+
+    // First find the image to get its URL
+    const photographerImage = await PhotographerImage.findOne({
+      photographerId,
+      'images._id': imageId,
+      'images.category': category
+    });
+
+    if (!photographerImage) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    // Get the image URL
+    const image = photographerImage.images.find(img => 
+      img._id.toString() === imageId && img.category === category
+    );
+
+    if (!image) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    // Now delete the image from the database
+    const result = await PhotographerImage.findOneAndUpdate(
+      { photographerId },
+      { 
+        $pull: { 
+          images: { 
+            _id: imageId,
+            category: category
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    // Delete the physical file from uploads directory
+    try {
+      const imagePath = path.join(__dirname, "..", image.imageUrl);
+      fs.unlink(imagePath, (err) => {
+        if (err) {
+          console.error(`Error deleting file: ${err.message}`);
+        }
+      });
+    } catch (err) {
+      console.error(`Error deleting file: ${err.message}`);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Image deleted successfully"
     });
   } catch (error) {
     console.error(error);
