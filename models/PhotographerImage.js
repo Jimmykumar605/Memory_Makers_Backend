@@ -17,6 +17,11 @@ const photographerImageSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    best_image: {
+      type: String,
+      enum: ['Y', 'N'],
+      default: 'N'
+    },
     uploadedAt: {
       type: Date,
       default: Date.now

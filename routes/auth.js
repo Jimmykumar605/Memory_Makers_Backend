@@ -413,6 +413,149 @@ router.get("/photographers/:id/images/:category", async (req, res) => {
   }
 });
 
+// GET ALL PHOTOGRAPHERS
+router.get("/all_photographers", async (req, res) => {
+  try {
+    // Get all photographers
+    const photographers = await User.find({ user_type: "photographer" });
+    
+    // Get all photographer images with categories
+    const photographerImages = await PhotographerImage.find();
+    
+    // Map photographers with their images and categories
+    const photographersWithCategories = photographers.map(photographer => {
+      const images = photographerImages
+        .find(pi => pi.photographerId.toString() === photographer._id.toString())
+        ?.images || [];
+      
+      // Group images by category
+      const categories = images.reduce((acc, image) => {
+        if (!acc[image.category]) {
+          acc[image.category] = [];
+        }
+        acc[image.category].push(image.imageUrl);
+        return acc;
+      }, {});
+      
+      return {
+        id: photographer._id,
+        name: photographer.name,
+        email: photographer.email,
+        phone: photographer.phone,
+        city: photographer.city,
+        language: photographer.language,
+        profileImage: photographer.profileImage,
+        categories
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      photographers: photographersWithCategories
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+});
+
+// ADD TO BEST IMAGES
+router.post("/add_to_best_images",upload.none(), async (req, res) => {
+  try {
+    // Get the data from either form data or JSON body
+    const data = req.body || {};
+    
+    // Handle form data
+    if (req.body && typeof req.body === 'string') {
+      try {
+        data = JSON.parse(req.body);
+      } catch (e) {
+        // If not JSON, treat as form data
+        data = {
+          userId: req.body.userId || req.body.photographerId,
+          imageId: req.body.imageId,
+          category: req.body.category
+        };
+      }
+    }
+
+    console.log('Received data:', data);
+
+    // Verify required fields
+    if (!data.userId && !data.photographerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing userId or photographerId"
+      });
+    }
+
+    if (!data.imageId || !data.category) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing imageId or category"
+      });
+    }
+
+    const userId = data.userId || data.photographerId;
+    const imageId = data.imageId;
+    const category = data.category;
+
+    // Verify photographer exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Photographer not found"
+      });
+    }
+
+    if (user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a photographer"
+      });
+    }
+
+    // Find and update the image
+    const result = await PhotographerImage.findOneAndUpdate(
+      {
+        photographerId: userId,
+        'images._id': imageId,
+        'images.category': category
+      },
+      {
+        $set: {
+          'images.$.best_image': 'Y'
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Image marked as best image successfully"
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+});
+
 // DELETE PHOTOGRAPHER IMAGE
 router.delete("/photographers/delete-image", async (req, res) => {
   try {
