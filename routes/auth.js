@@ -464,86 +464,64 @@ router.get("/all_photographers", async (req, res) => {
 });
 
 // ADD TO BEST IMAGES
-router.post("/add_to_best_images",upload.none(), async (req, res) => {
+router.post("/add_to_best_images", upload.none(), async (req, res) => {
   try {
-    // Get the data from either form data or JSON body
-    const data = req.body || {};
-    
-    // Handle form data
-    if (req.body && typeof req.body === 'string') {
+    let data = req.body || {};
+
+    if (req.body.data && typeof req.body.data === 'string') {
       try {
-        data = JSON.parse(req.body);
+        data = JSON.parse(req.body.data);
       } catch (e) {
-        // If not JSON, treat as form data
-        data = {
-          userId: req.body.userId || req.body.photographerId,
-          imageId: req.body.imageId,
-          category: req.body.category
-        };
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON in 'data' field"
+        });
       }
-    }
-
-    // Verify required fields
-    if (!data.userId && !data.photographerId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing userId or photographerId"
-      });
-    }
-
-    if (!data.imageId || !data.category) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing imageId or category"
-      });
     }
 
     const userId = data.userId || data.photographerId;
     const imageId = data.imageId;
     const category = data.category;
 
-    // Verify photographer exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Photographer not found"
-      });
-    }
-
-    if (user.user_type !== "photographer") {
+    if (!userId || !imageId || !category) {
       return res.status(400).json({
         success: false,
-        message: "User is not a photographer"
+        message: "Missing userId/imageId/category"
       });
     }
 
-    // Find and update the image
-    const result = await PhotographerImage.findOneAndUpdate(
-      {
-        photographerId: userId,
-        'images._id': imageId,
-        'images.category': category
-      },
-      {
-        $set: {
-          'images.$.best_image': 'Y'
-        }
-      },
-      { new: true }
-    );
+    const user = await User.findById(userId);
+    if (!user || user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer"
+      });
+    }
 
-    if (!result) {
+    // Step 1: Find the document and image
+    const photographerDoc = await PhotographerImage.findOne({
+      photographerId: userId,
+      'images._id': imageId,
+      'images.category': category
+    });
+
+    if (!photographerDoc) {
       return res.status(404).json({
         success: false,
         message: "Image not found"
       });
     }
 
+    // Step 2: Update the best_image flag
+    const image = photographerDoc.images.id(imageId);
+    image.best_image = "Y";
+    await photographerDoc.save();
+
     return res.status(200).json({
       success: true,
-      message: "Image marked as best image successfully"
+      message: "Image marked as best and saved successfully"
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -557,40 +535,67 @@ router.post("/add_to_best_images",upload.none(), async (req, res) => {
 // REMOVE FROM BEST IMAGES
 router.put("/remove_from_best_images", upload.none(), async (req, res) => {
   try {
-    const { imageId, userId, category } = req.body;
+    let data = req.body || {};
 
-    // Find and update the image
-    const result = await PhotographerImage.findOneAndUpdate(
-      {
-        photographerId: userId,
-        'images._id': imageId,
-        'images.category': category
-      },
-      {
-        $set: {
-          'images.$.best_image': 'N'
-        }
-      },
-      { new: true }
-    );
+    if (req.body.data && typeof req.body.data === 'string') {
+      try {
+        data = JSON.parse(req.body.data);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON in 'data' field"
+        });
+      }
+    }
 
-    if (!result) {
+    const userId = data.userId || data.photographerId;
+    const imageId = data.imageId;
+    const category = data.category;
+
+    if (!userId || !imageId || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing userId/imageId/category"
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer"
+      });
+    }
+
+    // Step 1: Find the document and image
+    const photographerDoc = await PhotographerImage.findOne({
+      photographerId: userId,
+      'images._id': imageId,
+      'images.category': category
+    });
+
+    if (!photographerDoc) {
       return res.status(404).json({
         success: false,
         message: "Image not found"
       });
     }
 
-    res.status(200).json({
+    // Step 2: Update the best_image flag
+    const image = photographerDoc.images.id(imageId);
+    image.best_image = "N";
+    await photographerDoc.save();
+
+    return res.status(200).json({
       success: true,
-      message: "Image removed from best images",
-      data: result
+      message: "Image removed from best images successfully"
     });
+
   } catch (error) {
     console.error("Error removing image from best images:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Error removing image from best images",
+      message: "Server error",
       error: error.message
     });
   }
