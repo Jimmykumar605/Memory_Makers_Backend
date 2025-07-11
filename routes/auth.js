@@ -419,39 +419,24 @@ router.get("/all_photographers", async (req, res) => {
     // Get all photographers
     const photographers = await User.find({ user_type: "photographer" });
     
-    // Get all photographer images with categories
+    // Get all photographer images
     const photographerImages = await PhotographerImage.find();
     
-    // Map photographers with their images and categories
-    const photographersWithCategories = photographers.map(photographer => {
-      const images = photographerImages
-        .find(pi => pi.photographerId.toString() === photographer._id.toString())
-        ?.images || [];
-      
-      // Group images by category
-      const categories = images.reduce((acc, image) => {
-        if (!acc[image.category]) {
-          acc[image.category] = [];
-        }
-        acc[image.category].push(image.imageUrl);
-        return acc;
-      }, {});
-      
+    // Map photographers with their best images
+    const photographersWithBestImages = photographers.map(photographer => {
+      const photographerImagesData = photographerImages
+        .find(pi => pi.photographerId.toString() === photographer._id.toString());
+      // Get best images
+      const bestImages = photographerImagesData?.images.filter(img => img?.best_image === 'Y');
       return {
-        id: photographer._id,
-        name: photographer.name,
-        email: photographer.email,
-        phone: photographer.phone,
-        city: photographer.city,
-        language: photographer.language,
-        profileImage: photographer.profileImage,
-        categories
+        ...photographer.toObject(),
+        best_images: bestImages
       };
     });
 
     return res.status(200).json({
       success: true,
-      photographers: photographersWithCategories
+      photographers: photographersWithBestImages
     });
   } catch (error) {
     console.error(error);
