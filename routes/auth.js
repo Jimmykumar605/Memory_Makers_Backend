@@ -483,8 +483,6 @@ router.post("/add_to_best_images",upload.none(), async (req, res) => {
       }
     }
 
-    console.log('Received data:', data);
-
     // Verify required fields
     if (!data.userId && !data.photographerId) {
       return res.status(400).json({
@@ -551,6 +549,48 @@ router.post("/add_to_best_images",upload.none(), async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message
+    });
+  }
+});
+
+// REMOVE FROM BEST IMAGES
+router.put("/remove_from_best_images", upload.none(), async (req, res) => {
+  try {
+    const { imageId, userId, category } = req.body;
+
+    // Find and update the image
+    const result = await PhotographerImage.findOneAndUpdate(
+      {
+        photographerId: userId,
+        'images._id': imageId,
+        'images.category': category
+      },
+      {
+        $set: {
+          'images.$.best_image': 'N'
+        }
+      },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Image removed from best images",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error removing image from best images:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error removing image from best images",
       error: error.message
     });
   }
