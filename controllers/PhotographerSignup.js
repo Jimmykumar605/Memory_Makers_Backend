@@ -339,4 +339,146 @@ const photographersImageDelete = async(req,res)=>{
     });
   }
 }
-module.exports = { photographerSignup, getPhotographer, updatePhotographer,photographerImagesUpload,getAllPhotographers,photographersImageDelete };
+const addPhotographerBestImages = async(req,res)=>{
+  try {
+    let data = req.body || {};
+
+    if (req.body.data && typeof req.body.data === 'string') {
+      try {
+        data = JSON.parse(req.body.data);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON in 'data' field"
+        });
+      }
+    }
+
+    const userId = data.userId || data.photographerId;
+    const imageId = data.imageId;
+    const category = data.category;
+
+    if (!userId || !imageId || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing userId/imageId/category"
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer"
+      });
+    }
+
+    // Step 1: Find the document and image
+    const photographerDoc = await PhotographerImage.findOne({
+      photographerId: userId,
+      'images._id': imageId,
+      'images.category': category
+    });
+
+    if (!photographerDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    // Step 2: Update the best_image flag
+    const image = photographerDoc.images.id(imageId);
+    image.best_image = "Y";
+    await photographerDoc.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Image marked as best and saved successfully"
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+}
+const removePhotographerBestImage = async(req,res)=>{
+  try {
+    let data = req.body || {};
+
+    if (req.body.data && typeof req.body.data === 'string') {
+      try {
+        data = JSON.parse(req.body.data);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON in 'data' field"
+        });
+      }
+    }
+
+    const userId = data.userId || data.photographerId;
+    const imageId = data.imageId;
+    const category = data.category;
+
+    if (!userId || !imageId || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing userId/imageId/category"
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || user.user_type !== "photographer") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid photographer"
+      });
+    }
+
+    // Step 1: Find the document and image
+    const photographerDoc = await PhotographerImage.findOne({
+      photographerId: userId,
+      'images._id': imageId,
+      'images.category': category
+    });
+
+    if (!photographerDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found"
+      });
+    }
+
+    // Step 2: Update the best_image flag
+    const image = photographerDoc.images.id(imageId);
+    image.best_image = "N";
+    await photographerDoc.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Image removed from best images successfully"
+    });
+
+  } catch (error) {
+    console.error("Error removing image from best images:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+}
+module.exports = {
+   photographerSignup, 
+   getPhotographer, 
+   updatePhotographer,
+   photographerImagesUpload,
+   getAllPhotographers,
+   photographersImageDelete,
+   addPhotographerBestImages,
+   removePhotographerBestImage };
