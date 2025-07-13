@@ -4,14 +4,15 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const User = require("../models/User");
+const login = require("../controllers/Login");
 const { PhotographerImage } = require("../models/PhotographerImage");
 const fs = require('fs');
-
-// Dummy JWT secret (use .env for production)
-const JWT_SECRET = "My$3cur3_JWT_Secr3t_K3y@2024!";
-
+const dotenv = require("dotenv");
+dotenv.config();
 const multer = require("multer");
 const path = require("path");
+const photographerSignup = require("../controllers/PhotographerSignup");
+const customerSignup = require("../controllers/CustomerSignup");
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -86,24 +87,7 @@ router.post("/update/photographer/:id", upload.single("profile"), async (req, re
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.json({ success: false, message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.json({ success: false, message: "Incorrect password" });
-    }
-
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "1d" });
-
-    return res.json({
-      success: true,
-      message: "Login successful",
-      user,
-      token,
-    });
+    login.login(req, res);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: "Server error" });
@@ -112,43 +96,8 @@ router.post("/login", async (req, res) => {
 
 // CUSTOMER SIGNUP
 router.post("/customer/signup", async (req, res) => {
-  const { name, user_email, user_password, confirm_password, user_login_id, user_type } = req.body;
-
   try {
-    // Validate passwords match
-    if (user_password !== confirm_password) {
-      return res.status(400).json({
-        success: false,
-        message: "Passwords do not match"
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: user_email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists"
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(user_password, 10);
-
-    // Create new user
-    const user = new User({
-      name,
-      email: user_email,
-      password: hashedPassword,
-      user_type: "customer"
-    });
-
-    await user.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Customer registration successful"
-    });
+    customerSignup.customerSignup(req, res);
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -161,38 +110,8 @@ router.post("/customer/signup", async (req, res) => {
 
 // PHOTOGRAPHER SIGNUP
 router.post("/photographer/signup", async (req, res) => {
-  const { name, user_email, user_password, phone, city, language, user_login_id, user_type } = req.body;
-
   try {
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: user_email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists"
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(user_password, 10);
-
-    // Create new user
-    const user = new User({
-      name,
-      email: user_email,
-      password: hashedPassword,
-      user_type: "photographer",
-      phone,
-      city,
-      language
-    });
-
-    await user.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Photographer registration successful"
-    });
+    photographerSignup.photographerSignup(req, res);
   } catch (error) {
     console.error(error);
     return res.status(500).json({

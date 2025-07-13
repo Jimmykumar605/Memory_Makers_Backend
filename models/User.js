@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: function() { return this.user_type === 'photographer'; }
   },
+  experience: { 
+    type: String,
+    required: function() { return this.user_type === 'photographer'; }
+  },
   city: { 
     type: String,
     required: function() { return this.user_type === 'photographer'; }
