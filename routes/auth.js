@@ -306,40 +306,46 @@ router.post("/photographers/upload-image", upload.single("image"), async (req, r
   }
 });
 
-// GET PHOTOGRAPHER IMAGES BY ID
-router.get("/photographers/:id/images", async (req, res) => {
+// GET PHOTOGRAPHER BY ID
+router.get("/photographers/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id);
     
-    if (!user) {
+    // Find the photographer
+    const photographer = await User.findById(id);
+    
+    if (!photographer) {
       return res.status(404).json({
         success: false,
         message: "Photographer not found"
       });
     }
 
-    if (user.user_type !== "photographer") {
+    if (photographer.user_type !== "photographer") {
       return res.status(400).json({
         success: false,
         message: "User is not a photographer"
       });
     }
 
-    // Find the photographer's image document
+    // Get photographer's images
     const photographerImage = await PhotographerImage.findOne({ photographerId: id });
     
-    if (!photographerImage) {
-      return res.status(404).json({
-        success: false,
-        message: "No images found for this photographer"
-      });
-    }
-
-    return res.status(200).json({
+    // Format the response to include both profile and images
+    const response = {
       success: true,
-      images: photographerImage.images
-    });
+        id: photographer._id,
+        name: photographer.name,
+        email: photographer.email,
+        phone: photographer.phone,
+        city: photographer.city,
+        language: photographer.language,
+        profileImage: photographer.profileImage,
+        createdAt: photographer.created_at,
+        images: photographerImage ? photographerImage.images : []
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error(error);
     return res.status(500).json({
